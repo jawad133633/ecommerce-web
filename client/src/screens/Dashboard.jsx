@@ -1,0 +1,23 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from '../lib/navigation';
+import api from '../api/axios';
+
+export default function Dashboard() {
+  const navigate = useNavigate(); const [store, setStore] = useState(null); const [products, setProducts] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [user, setUser] = useState({});
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) { navigate('/login'); return; }
+    try { setUser(JSON.parse(localStorage.getItem('user') || '{}')); } catch { setUser({}); }
+    const headers = { Authorization: `Bearer ${token}` };
+    Promise.all([api.get('/stores/my-store', { headers }), api.get('/products/my-products', { headers })])
+      .then(([storeResponse, productResponse]) => { setStore(storeResponse.data.store); setProducts(productResponse.data.products || []); })
+      .catch((err) => { if (err.response?.status === 401) { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/login'); } else setError(err.response?.data?.message || 'Unable to load your store.'); })
+      .finally(() => setLoading(false));
+  }, [navigate]);
+  const logout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); };
+  if (loading) return <div className="loading-page">Getting your shop ready…</div>;
+  if (!store) return <div className="dashboard-page"><header className="dash-topbar"><Link className="brand" to="/">market<span>hub</span><i>®</i></Link><Link className="auth-back" to="/">Visit marketplace ↗</Link></header><main className="create-layout"><div className="create-intro"><span className="eyebrow">YOUR SELLER SPACE</span><h1>Your shop starts with an idea.</h1><p>{error || 'Set up your little corner of the marketplace, then add products and share your shop with the world.'}</p></div><section className="dash-card"><h3>Ready when you are.</h3><p className="empty-dash">Your storefront, product catalogue, and shareable link will live here.</p><Link className="button button-dark" to="/create-store">Create your store <span>↗</span></Link></section></main></div>;
+  const stock = products.reduce((total, product) => total + Number(product.stock || 0), 0);
+  return <div className="dashboard-page"><header className="dash-topbar"><Link className="brand" to="/">market<span>hub</span><i>®</i></Link><div className="dash-actions"><Link to="/">Marketplace</Link><button onClick={logout}>Log out</button></div></header><main className="dash-layout"><div className="dash-heading"><div><span className="eyebrow">YOUR SELLER SPACE</span><h1>Good morning{user.name ? `, ${user.name.split(' ')[0]}` : ''}.</h1><p>Here’s a little look at how your shop is doing.</p></div><div className="dash-actions"><Link to={`/store/${store.slug}`}>View your shop ↗</Link><Link to="/seller/orders">Orders ↗</Link><Link className="primary-action" to="/products">＋ Add a product</Link></div></div><section className="dash-card"><div className="dash-store">{store.logoUrl ? <img className="store-avatar" src={store.logoUrl} alt={`${store.name} logo`} /> : <div className="store-avatar" aria-hidden="true">{store.name.slice(0, 1)}</div>}<div><h2>{store.name}</h2><p>{store.description || 'Your independent shop on MarketHub'}</p></div><Link className="store-public-link" to={`/store/${store.slug}`}>markethub.local/store/{store.slug} ↗</Link></div><div className="dash-stats"><div className="dash-stat"><strong>{products.length}</strong><span>Products in your shop</span></div><div className="dash-stat"><strong>{stock}</strong><span>Items in stock</span></div><div className="dash-stat"><strong>PKR</strong><span>Store currency</span></div></div></section><div className="dash-lower"><section className="dash-card"><h3>Your products</h3>{products.length ? products.slice(0, 4).map((product) => <div className="dash-product" key={product._id}><img src={product.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=100&q=75'} alt="" /><div><strong>{product.name}</strong><span>{product.category} · {product.stock} in stock</span></div><b>Rs. {Number(product.price).toLocaleString('en-PK')}</b></div>) : <p className="empty-dash">Your first product is the start of something good.</p>}<Link className="text-link" to="/products">Manage your products <span>↗</span></Link></section><section className="dash-card"><h3>A little next step</h3><p className="empty-dash">Add a few products and share your shop with your community.</p><Link className="button button-dark" to="/products">Add your first product <span>↗</span></Link></section></div></main></div>;
+}
